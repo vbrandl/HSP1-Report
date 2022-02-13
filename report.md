@@ -8,13 +8,23 @@ These are hard to monitor due to the missing central authority and must be mappe
 In the scope of this project, we try to find sensors by ranking nodes in the graph using different graph-ranking algorithms:
 
 * PageRank:
-    the same algorithm google uses to rank search results. Nodes in the graph are ranked depending on their $\deg_{in}$ and $\deg_{out}$
+    The Page Rank algorithm is the same algorithm google uses to estimate the importance of a website by the amount of receiving links from other websites.
+	The output of the algorithm is a probability distribution, that a person clicking on links will eventually arrive at any particular page.
+	The rank of a page is defined recursively and is based on the number of incoming links and their own rank. A website that many other pages with high rank point to is ranked high itself.
+	Nodes in the graph are ranked depending on their $\deg_{in}$ and $\deg_{out}$
+	
 
     With $rank_v$ being the current rank of $v \in V$, $pred_v$ being the predecessors of $v \in V$ and $succ_v$ being the successors von $v \in V$ and a freely choosable dampingFactor (TODO), PageRank for $v$ is defined as
     
     $$
     (\sum\limits_{p \in pred_v} \frac{rank_p}{|succ_p|}) * dampingFactor + \frac{1 - dampingFactor}{|V|}
     $$
+	
+	Damping Factor:
+	The Page Rank theory is based on an imaginary surfer, traversing randomly through websites via links.
+	The damping factor describes the probability, that the person clicking on links will continue at any step. 
+	In our implementation of the Page Rank algorithm we don't have to take into account that there is a probability that nodes won't communicate with each other.
+    Because of that the damping Factor can be set to 1.
 
 * SensorRank:
     based on page rank
