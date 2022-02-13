@@ -10,11 +10,16 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
 * PageRank:
     The Page Rank algorithm is the same algorithm google uses to estimate the importance of a website by the amount of receiving links from other websites.
 	The output of the algorithm is a probability distribution, that a person clicking on links will eventually arrive at any particular page.
-	The rank of a page is defined recursively and is based on the number of incoming links and their own rank. A website that many other pages with high rank point to is ranked high itself.
-	Nodes in the graph are ranked depending on their $\deg_{in}$ and $\deg_{out}$
+	It is recursively defined by the number of incoming links from another website and their own rank resulting in a high rank for a website that many other pages with high rank point to.
 	
+	Similar to botnets, the relation between websites and hyperlinks can be modeled as a directed graph with websites as nodes and hyperlinks as edges.
+	The Page Rank is a value in the range $$[0.0,1.0]$$. The values are determined based on the predecessors and their respective ranks.
+	Therefore we can calculate a so called $$edge-weight_v = PR_v \|succ_v| which will be distributed over all edges of node v resulting in the Page Rank value of a node being the sum of the edge-weights of all its predecessors.
+		
+	Nodes in the graph are ranked depending on their $\deg_{in}$ and $\deg_{out}$
 
-    With $rank_v$ being the current rank of $v \in V$, $pred_v$ being the predecessors of $v \in V$ and $succ_v$ being the successors von $v \in V$ and a freely choosable dampingFactor (TODO), PageRank for $v$ is defined as
+    With $rank_v$ being the current rank of $v \in V$, $pred_v$ being the predecessors of $v \in V$ and $succ_v$ being the successors von $v \in V$ and a freely choosable dampingFactor (TODO), 
+	PageRank for $v$ is defined as
     
     $$
     (\sum\limits_{p \in pred_v} \frac{rank_p}{|succ_p|}) * dampingFactor + \frac{1 - dampingFactor}{|V|}
@@ -25,18 +30,28 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
 	The damping factor describes the probability, that the person clicking on links will continue at any step. 
 	In our implementation of the Page Rank algorithm we don't have to take into account that there is a probability that nodes won't communicate with each other.
     Because of that the damping Factor can be set to 1.
+	
+	In a P2P botnet, a bot that is known by many bots has a higher rank because of the amount of predecessors. The longer a bot is in a botnet the bigger its popularity. Sensors are among the most responsive nodes in a botnet.
+	Therefore they cannot be distinguished from other popular nodes. However, the edge-weights on outgoing edges should differ significantly between sensor nodes because they have none or few outgoing edges.
 
 * SensorRank:
-    based on page rank
+    Using the original Page Rank algorithm is not effective in P2P botnets because of churn. Unpopular bots may receive a high edge-weight if it has few high-ranked predecessors in combination with very few successors.
+	Therefore in the Sensor Rank algorithm we normalize the edge-weight of a node v by multiplying it with the fraction of predecessors over the total population.
 
     $$
     SensorRank_v = edge-weight_v \times \frac{pred_v}{V}
     $$
+	
+	The Sensor Rank represents the fraction of a bot's Page Rank that is equally distributed among its neigbours.
 
 * sensor buster
+    Sensor Buster utilizes the Strongly Connected Component (SCC) connectivity metric. P2P botnets want a strong connectivity between their bots to prevent segmentation. As a result a main SCC is formed. A sensor would not be
+	part of this main SCC because it will not have any bots as its successors and because of that no path from the sensor back to the SCC.
+	Therefore, all nodes that are not included in the main SCC are most likely sensors.
     find weakly connected components in the graph since the sensors should have many incoming but few to none outgoing edges with makes them a single component
 
-    While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to help the network in any malicious activity. Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurratly to neigbourhood list requests. This behaviour results in the disconnected graph component.
+    While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to help the network in any malicious activity. 
+	Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurratly to neigbourhood list requests. This behaviour results in the disconnected graph component.
 
 
 ### Requirements
@@ -58,7 +73,8 @@ Currently the following botnets are being watched:
 
 The solution has been implemented as a scheduler in python running in a Docker container alongside the other processes of BMS.
 
-One of the system's tables called `bot_edges` contains each known edge in the botnet graph consisting of IP address, port and bot ID (if available) of the source and destination bots as well as the time, when the edge has been found.
+One of the system's tables called `bot_edges` contains each known edge in the botnet graph consisting of IP address, port and bot ID (if available) of the source and destination bots as well as the time, 
+when the edge has been found.
 This table allows to build the network graph for a defined time frame.
 
 The scheduler takes time frames of 1h, builds the network graph over all the edges in that frame, applies the 3 ranking algorithms and persists the result.
