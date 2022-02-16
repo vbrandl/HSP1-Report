@@ -48,7 +48,7 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
     A sensor would not be part of this main SCC because it will not have any bots as its successors and because of that no path from the sensor back to the SCC.
     Therefore, all nodes that are not included in the main SCC are most likely sensors.
 
-    ![Graph with weakly connected component](./weaklyconnected.png)
+    ![Graph with weakly connected component](./weaklyconnected.svg)
 
     While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to support the network by performing any malicious activity (e.g. DDOS, sending spam, ...).
     Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurately to neighbourhood list requests.

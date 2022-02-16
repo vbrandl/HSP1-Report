@@ -5,7 +5,7 @@ HTML_TARGETS=$(MD_SOURCES:%.md=build/%.html)
 PDF_TARGETS=$(MD_SOURCES:%.md=build/%.pdf)
 
 DOT_SOURCES=$(shell find . -name '*.dot' -not -path "./templates/*")
-DOT_TARGETS=$(DOT_SOURCES:%.dot=build/%.png)
+DOT_TARGETS=$(DOT_SOURCES:%.dot=build/%.svg)
 
 TEX_SOURCES=$(shell find . -not -path "./templates/*" -not -path "./equations/*" -name '*.tex')
 TEX_TARGETS=$(TEX_SOURCES:%.tex=build/%.pdf)
@@ -48,9 +48,9 @@ build/%.svg: ./equations/%.tex
 	pdfcrop "$(basename $@).pdf" "$(basename $@).pdf"
 	pdf2svg "$(basename $@).pdf" "$(basename $@).svg"
 
-build/%.png: %.dot
+build/%.svg: %.dot
 	@mkdir -p $$(dirname $@)
-	dot -Tpng -o $@ $<
+	dot -Tsvg -o $@ $<
 
 .PHONY: clean
 clean:
