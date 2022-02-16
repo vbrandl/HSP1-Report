@@ -14,6 +14,7 @@ let
     ly1
     mdframed
     needspace
+    pdfcrop
     sourcecodepro
     sourcesanspro
     titling
@@ -28,8 +29,10 @@ pkgs.mkShell {
     latexPackage
 
     pkgs.gnumake
+    pkgs.graphviz
     pkgs.inotify-tools
     pkgs.pandoc
+    pkgs.pdf2svg
     pkgs.zathura
   ];
 }

@@ -2,110 +2,98 @@
 
 ## Problem
 
-The problem is to find sensors, crawlers, other researchers and <polizei> in P2P botnets.
-P2P botnets can be modeled as a directed graph $G = (V, E)$.
+The problem is to detect sensors, crawlers, other researchers and law enforcement in P2P botnets using different metrics on graphs.
+P2P botnets can be modeled as a directed graph `G = (V, E)`, where each vertex represents a node in the botnet and edges represent neighbourhood connections between nodes.
 These are hard to monitor due to the missing central authority and must be mapped over time to get an image of the size and members of the botnet.
 In the scope of this project, we try to find sensors by ranking nodes in the graph using different graph-ranking algorithms:
 
 * PageRank:
-    the same algorithm google uses to rank search results. Nodes in the graph are ranked depending on their $\deg_{in}$ and $\deg_{out}$
+    The same algorithm Google uses to rank search results. Nodes in the graph are ranked depending on their incoming and outgoing degree [^pagerank].
 
-    With $rank_v$ being the current rank of $v \in V$, $pred_v$ being the predecessors of $v \in V$ and $succ_v$ being the successors von $v \in V$ and a freely choosable dampingFactor (TODO), PageRank for $v$ is defined as
-    
-    $$
-    (\sum\limits_{p \in pred_v} \frac{rank_p}{|succ_p|}) * dampingFactor + \frac{1 - dampingFactor}{|V|}
-    $$
+    With `rank(v)` being the current rank of the vertex `v`, `pred(v)` being the predecessors of `v` and `succ(v)` being the successors of `v` and a freely choosable `dampingFactor` (TODO), PageRank for `v` is defined as
+
+    ![PageRank](./pagerank.svg)
 
 * SensorRank:
-    based on page rank
+    based on page rank [^recon]
 
-    $$
-    SensorRank_v = edge-weight_v \times \frac{pred_v}{V}
-    $$
+    ![SensorRank](./sensorrank.svg)
 
-* sensor buster
-    find weakly connected components in the graph since the sensors should have many incoming but few to none outgoing edges with makes them a single component
+* Sensor Buster:
+    Find weakly connected components in the graph since the sensors should have many incoming but few to none outgoing edges with makes them a disconnected component [^sensorbuster].
 
-    While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to help the network in any malicious activity. Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurratly to neigbourhood list requests. This behaviour results in the disconnected graph component.
+    ![Graph with weakly connected component](./weaklyconnected.png)
 
+    While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to support the network by performing any malicious activity (e.g. DDOS, sending spam, ...).
+    Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurately to neighbourhood list requests.
+    This behaviour results in the disconnected graph component.
 
-### Requirements
 
 
 ## Existing System: BMS
 
-The Botnet Monitoring System (BMS) is a platform to crawl and monitor P2P botnets and building statistics over time.
-Currently the following botnets are being watched:
+The Botnet Monitoring System (BMS) is a platform to crawl and monitor P2P botnets and building statistics over time [^bms].
+Currently the following botnets are being observed:
 
-* DDG: Mining botnet, aimed at database servers
-* Hajime: IoT botnet, related to Mirai (?)
-* Hide 'n' Seek: IoT and database servers, crytocurrency mining
-* Mozi: IoT, DDoS, data exfiltration
-* Sality: Windows, spam, proxy, data exfiltration, DDoS
+* DDG: a cryptocurrency mining botnet (Monero), mostly aimed at database servers [^ddg] [^ddg_netlab].
+* Hajime: IoT botnet, targeting mostly the same unsecured/badly secured IoT devices as Mirai [^hajime]
+* Hide 'n' Seek: IoT devices and misconfigured database servers (e.g. MongoDB, CouchDB), cryptocurrency mining [^hns]
+* Mozi: IoT, DDoS, data exfiltration [^mozi]
+* Sality: Windows, file infector, spam, proxy, data exfiltration, DDoS [^sality]
+
+Our solution to the problem had to be integrated into BMS to be able build a network graph to perform analysis on.
 
 
 ## Implementation
 
-The solution has been implemented as a scheduler in python running in a Docker container alongside the other processes of BMS.
+BMS contains many different, independent tasks, that perform analysis on the collected data.
+These tasks are implemented as Docker containers that can read and write from the central PostgreSQL/Timescale database.
+We implemented the node ranking as a scheduler that runs once a hour in Python.
+Python was chosen since it is already used by other tasks in BMS.
 
 One of the system's tables called `bot_edges` contains each known edge in the botnet graph consisting of IP address, port and bot ID (if available) of the source and destination bots as well as the time, when the edge has been found.
 This table allows to build the network graph for a defined time frame.
 
-The scheduler takes time frames of 1h, builds the network graph over all the edges in that frame, applies the 3 ranking algorithms and persists the result.
-Only the top x% or y nodes (both of which are configurable) of the ranked nodes are persisted to keep the memory footprint as low as possible.
+To calculate the ranking, we look at the `bot_edges` in time buckets of one hour, build the graph of the network, using the NetworkX Python library [^nx].
+All implemented ranking algorithms are applied to the graph and the results are persisted.
+Only the top x% or y nodes (both of which are configurable) of the ranked nodes are persisted to prevent the database from getting too big, since it would effectively double the amount of space needed.
 
+### Considerations When Implementing
+
+For testability, purity and extensibility, we implemented the ranking algorithm independent of the actual database schema.
+The input is a list of edges which can be loaded from the database but also from a file or be created programmatically, which we take advantage of, when implementing unit tests.
 
 ### Testing and Verification of Results
 
-Some unit tests were implemented to verify the result of the rankings, where the input and expected output are known:
+Some unit tests were implemented so we could verify the result of the ranking algorithms, where the input and expected output are known:
 
 * A complete graph was generated and fake sensor nodes with only incoming edges were inserted into the graph. The ranking algorithms are then executed on the graph and we checked if the fake sensor was found.
 * Inputs for which the expected result is known were generated and used to test the algorithms
-* On production data, we verified, that well known sensors were found by our implementation
+* Since some other crawlers and sensors were known, we used production data to verified, that already well known sensors were found by our implementation
 
 
-### Failed Attempts
+### Failed Attempts and Problems
 
-* view/materialized view
+While the ranking algorithms itself were quite straight-forward to implement, performance issues and memory usage were of concern.
+Performing the analysis via SQL and materialized views in the database itself did not work or were dropped before testing, since the analysis itself is to complex to perform in SQL and would be hard to test.
+To limit round-trips between database and code, a LRU cache was used to cache the loaded edges, since these can be considered immutable and only need to be loaded once.
 
+TODO: bots per hour
+
+Since BMS monitors up to XXX bots per hour, we decided to limit the amount of ranked/detected peers to persist.
+
+Other small problems included `INSERT` performance with could be improved by batching.
 
 ## References
 
-@inproceedings{andriesseReliableReconAdversarial2015,
-  title = {Reliable {{Recon}} in {{Adversarial Peer}}-to-{{Peer Botnets}}},
-  booktitle = {Proceedings of the 2015 {{Internet Measurement Conference}}},
-  author = {Andriesse, Dennis and Rossow, Christian and Bos, Herbert},
-  date = {2015-10-28},
-  series = {{{IMC}} '15},
-  pages = {129--140},
-  publisher = {{Association for Computing Machinery}},
-  location = {{New York, NY, USA}},
-  doi = {10.1145/2815675.2815682},
-  url = {https://doi.org/10.1145/2815675.2815682},
-  urldate = {2021-03-23},
-  abstract = {The decentralized nature of Peer-to-Peer (P2P) botnets precludes traditional takedown strategies, which target dedicated command infrastructure. P2P botnets replace this infrastructure with command channels distributed across the full infected population. Thus, mitigation strongly relies on accurate reconnaissance techniques which map the botnet population. While prior work has studied passive disturbances to reconnaissance accuracy ---such as IP churn and NAT gateways---, the same is not true of active anti-reconnaissance attacks. This work shows that active attacks against crawlers and sensors occur frequently in major P2P botnets. Moreover, we show that current crawlers and sensors in the Sality and Zeus botnets produce easily detectable anomalies, making them prone to such attacks. Based on our findings, we categorize and evaluate vectors for stealthier and more reliable P2P botnet reconnaissance.},
-  isbn = {978-1-4503-3848-6},
-  keywords = {crawling,peer-to-peer botnet,reconnaissance},
-  file = {/home/me/Zotero/storage/KWGUA89Y/Andriesse et al. - 2015 - Reliable Recon in Adversarial Peer-to-Peer Botnets.pdf}
-}
-
-@inproceedings{karuppayahSensorBusterIdentifyingSensor2017,
-  title = {{{SensorBuster}}: On {{Identifying Sensor Nodes}} in {{P2P Botnets}}},
-  shorttitle = {{{SensorBuster}}},
-  booktitle = {Proceedings of the 12th {{International Conference}} on {{Availability}}, {{Reliability}} and {{Security}}},
-  author = {Karuppayah, Shankar and Böck, Leon and Grube, Tim and Manickam, Selvakumar and Mühlhäuser, Max and Fischer, Mathias},
-  date = {2017-08-29},
-  series = {{{ARES}} '17},
-  pages = {1--6},
-  publisher = {{Association for Computing Machinery}},
-  location = {{New York, NY, USA}},
-  doi = {10.1145/3098954.3098991},
-  url = {https://doi.org/10.1145/3098954.3098991},
-  urldate = {2021-03-23},
-  abstract = {The ever-growing number of cyber attacks originating from botnets has made them one of the biggest threat to the Internet ecosystem. Especially P2P-based botnets like ZeroAccess and Sality require special attention as they have been proven to be very resilient against takedown attempts. To identify weaknesses and to prepare takedowns more carefully it is thus a necessity to monitor them by crawling and deploying sensor nodes. This in turn provokes botmasters to come up with monitoring countermeasures to protect their assets. Most existing anti-monitoring countermeasures focus mainly on the detection of crawlers and not on the detection of sensors deployed in a botnet. In this paper, we propose two sensor detection mechanisms called SensorRanker and SensorBuster. We evaluate these mechanisms in two real world botnets, Sality and ZeroAccess. Our results indicate that SensorRanker and SensorBuster are able to detect up to 17 sensors deployed in Sality and four within ZeroAccess.},
-  isbn = {978-1-4503-5257-4},
-  keywords = {Anti-monitoring,Countermeasure,Detection,P2P Botnet,Sensor},
-  file = {/home/me/Zotero/storage/ZDUFTXYY/Karuppayah et al. - 2017 - SensorBuster On Identifying Sensor Nodes in P2P B.pdf}
-}
-
-
+[^recon]: [Reliable Recon in Adversarial Peer-to-Peer Botnets](https://doi.org/10.1145/2815675.2815682) (Andriesse, Dennis and Rossow, Christian and Bos, Herbert)
+[^sensorbuster]: [SensorBuster: On Identifying Sensor Nodes in P2P Botnets](https://doi.org/10.1145/3098954.3098991) (Karuppayah, Shankar and Böck, Leon and Grube, Tim and Manickam, Selvakumar and Mühlhäuser, Max and Fischer, Mathias)
+[^pagerank]: [The PageRank Citation Ranking: Bringing Order to the Web](http://ilpubs.stanford.edu:8090/422/1/1999-66.pdf) (Page, Lawrence and Brin, Sergey and Motwani, Rajeev and Winograd, Terry)
+[^bms]: [Poster: Challenges of Accurately Measuring Churn in P2P Botnets](https://dl.acm.org/doi/10.1145/3319535.3363281) (Böck, Leon and Karuppayah, Shankar and Fong, Kory and Mühlhäuser, Max and Vasilomanolakis, Emmanouil)
+[^nx]: [NetworkX: Network Analysis in Python](https://networkx.org/)
+[^ddg]: [DDG (Malware Family)](https://malpedia.caad.fkie.fraunhofer.de/details/elf.ddg) (Fraunhofer-Institut für Kommunikation, Informationsverarbeitung und Ergonomie FKIE)
+[^ddg_netlab]: [DDG: A Mining Botnet Aiming at Database Servers](https://blog.netlab.360.com/ddg-a-mining-botnet-aiming-at-database-servers/) ([https://netlab.360.com/](Network Security Research Lab at 360))
+[^hajime]: [Measurement and Analysis of Hajime, a Peer-to-peer IoT Botnet](https://par.nsf.gov/servlets/purl/10096257) (Herwig, Stephen and Harvey, Katura and Hughey, George and Roberts, Richard and Levin, Dave and University of Maryland and Max Planck Institute for Software Systems (MPI-SWS))
+[^hns]: [Hide ‘N Seek botnet continues infecting devices with default credentials, building a P2P network and more](https://blog.avast.com/hide-n-seek-botnet-continues) (Avast)
+[^mozi]: [Mozi, Another Botnet Using DHT](https://blog.netlab.360.com/mozi-another-botnet-using-dht/) (Turing, Alex and Wang, Hui)
+[^sality]: [Sality: Story of a Peer-to-Peer Viral Network](https://web.archive.org/web/20120403180815/http://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/sality_peer_to_peer_viral_network.pdf) (Falliere, Nicolas)
