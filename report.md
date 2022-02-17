@@ -18,7 +18,7 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
 
     Nodes in the graph are ranked depending on their incoming and outgoing degree.
 
-    With `rank(v)` being the current rank of the vertex `v`, `pred(v)` being the predecessors of `v` and `succ(v)` being the successors of `v` and a freely choosable `dampingFactor` (TODO), PageRank for `v` is defined as
+    With `rank(v)` being the current rank of the vertex `v`, `pred(v)` being the predecessors of `v` and `succ(v)` being the successors of `v` and a freely choosable `dampingFactor`, PageRank for `v` is defined as
 
     ![PageRank](./pagerank.svg)
 
@@ -104,9 +104,7 @@ While the ranking algorithms itself were quite straight-forward to implement, pe
 Performing the analysis via SQL and materialized views in the database itself did not work or were dropped before testing, since the analysis itself is to complex to perform in SQL and would be hard to test.
 To limit round-trips between database and code, a LRU cache was used to cache the loaded edges, since these can be considered immutable and only need to be loaded once.
 
-TODO: bots per hour
-
-Since BMS monitors up to XXX bots per hour, we decided to limit the amount of ranked/detected peers to persist.
+Since BMS handles up to 100.000 replies per minute, we decided to limit the amount of ranked/detected peers to persist.
 
 Other small problems included `INSERT` performance with could be improved by batching.
 
