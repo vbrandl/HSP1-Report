@@ -66,14 +66,14 @@ Currently the following botnets are being observed:
 * Mozi: IoT, DDoS, data exfiltration [^mozi]
 * Sality: Windows, file infector, spam, proxy, data exfiltration, DDoS [^sality]
 
-Our solution to the problem had to be integrated into BMS to be able build a network graph to perform analysis on.
+A requirement of the task was to integrate the implemented solution into BMS, allowing to build a network graph on which analysis can be performed.
 
 
 ## Implementation
 
 BMS contains many different, independent tasks, that perform analysis on the collected data.
 These tasks are implemented as Docker containers that can read and write from the central PostgreSQL/Timescale database.
-We implemented the node ranking as a scheduler that runs once a hour in Python.
+We implemented the node ranking as a scheduler that runs once every hour in Python.
 Python was chosen since it is already used by other tasks in BMS.
 
 One of the system's tables called `bot_edges` contains each known edge in the botnet graph consisting of IP address, port and bot ID (if available) of the source and destination bots as well as the time,
@@ -93,9 +93,9 @@ The input is a list of edges which can be loaded from the database but also from
 
 Some unit tests were implemented so we could verify the result of the ranking algorithms, where the input and expected output are known:
 
-* A complete graph was generated and fake sensor nodes with only incoming edges were inserted into the graph. The ranking algorithms are then executed on the graph and we checked if the fake sensor was found.
+* A complete graph was generated and fake sensor nodes with only incoming edges were inserted into the graph. The ranking algorithms are then executed on the graph and we checked if the fake sensors were found.
 * Inputs for which the expected result is known were generated and used to test the algorithms
-* Since some other crawlers and sensors were known, we used production data to verified, that already well known sensors were found by our implementation
+* Since some other crawlers and sensors were known, we used production data to verify that already well known sensors were found by our implementation
 
 
 ### Failed Attempts and Problems
@@ -106,7 +106,7 @@ To limit round-trips between database and code, a LRU cache was used to cache th
 
 Since BMS handles up to 100.000 replies per minute, we decided to limit the amount of ranked/detected peers to persist.
 
-Other small problems included `INSERT` performance with could be improved by batching.
+Other small problems included `INSERT` performance wich could be improved by batching.
 
 ## References
 
