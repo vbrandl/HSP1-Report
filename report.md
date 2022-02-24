@@ -32,6 +32,8 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
     In a P2P botnet, a bot that is known by many bots has a higher rank because of the amount of predecessors. The longer a bot is in a botnet the bigger its popularity. Sensors are among the most responsive nodes in a botnet.
     Therefore they cannot be distinguished from other popular nodes. However, the edge-weights on outgoing edges should differ significantly between sensor nodes because they have none or few outgoing edges.
 
+        (Jakob Sigl)
+
 * SensorRank:
     Using the original Page Rank algorithm is not effective in P2P botnets because of churn [^recon].
     Unpopular bots may receive a high edge-weight if it has few high-ranked predecessors in combination with very few successors.
@@ -40,6 +42,8 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
     ![SensorRank](./sensorrank.svg)
 
     The Sensor Rank represents the fraction of a bot's Page Rank that is equally distributed among its neigbours.
+    
+        (Jakob Sigl)
 
 * Sensor Buster:
     Sensor Buster utilizes the Strongly Connected Component (SCC) connectivity metric [^sensorbuster].
@@ -53,6 +57,8 @@ In the scope of this project, we try to find sensors by ranking nodes in the gra
     While monitoring a P2P botnet requires the sensor to be part of the network, at the same time one does not want to support the network by performing any malicious activity (e.g. DDOS, sending spam, ...).
     Therefore sensors will accept incoming connections but neither execute commands by the botmaster, nor reply accurately to neighbourhood list requests.
     This behaviour results in the disconnected graph component.
+    
+        (Valentin Brandl)
 
 
 ## Existing System: BMS
@@ -84,6 +90,8 @@ To calculate the ranking, we look at the `bot_edges` in time buckets of one hour
 All implemented ranking algorithms are applied to the graph and the results are persisted.
 Only the top x% or y nodes (both of which are configurable) of the ranked nodes are persisted to prevent the database from getting too big, since it would effectively double the amount of space needed.
 
+(Jakob Sigl, Valentin Brandl)
+
 ### Considerations When Implementing
 
 For testability, purity and extensibility, we implemented the ranking algorithm independent of the actual database schema.
@@ -97,16 +105,18 @@ Some unit tests were implemented so we could verify the result of the ranking al
 * Inputs for which the expected result is known were generated and used to test the algorithms
 * Since some other crawlers and sensors were known, we used production data to verify that already well known sensors were found by our implementation
 
+        (Jakob Sigl)
+
 
 ### Failed Attempts and Problems
 
 While the ranking algorithms itself were quite straight-forward to implement, performance issues and memory usage were of concern.
 Performing the analysis via SQL and materialized views in the database itself did not work or were dropped before testing, since the analysis itself is to complex to perform in SQL and would be hard to test.
-To limit round-trips between database and code, a LRU cache was used to cache the loaded edges, since these can be considered immutable and only need to be loaded once.
+To limit round-trips between database and code, a LRU cache was used to cache the loaded edges, since these can be considered immutable and only need to be loaded once. (Valentin Brandl)
 
-Since BMS handles up to 100.000 replies per minute, we decided to limit the amount of ranked/detected peers to persist.
+Since BMS handles up to 100.000 replies per minute, we decided to limit the amount of ranked/detected peers to persist. (Jakob Sigl)
 
-Other small problems included `INSERT` performance wich could be improved by batching.
+Other small problems included `INSERT` performance wich could be improved by batching. (Jakob Sigl)
 
 ## References
 
